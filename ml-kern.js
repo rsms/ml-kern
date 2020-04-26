@@ -173,6 +173,9 @@ class PolyShape {
       let xr = maxX
       let endl = raycastX(hitTesters, xl, y, 1, maxDistance)
       let endr = raycastX(hitTesters, xr, y, -1, maxDistance)
+      // TODO: Consider encoding features as velocity instead of lines.
+      // i.e. let the position in the features list replace the "y" value and then
+      // simply store the number end-x
       this.features.left.push([ new Vec2(xl,y), new Vec2(endl,y) ])
       this.features.right.push([ new Vec2(xr,y), new Vec2(endr,y) ])
     }
