@@ -1,5 +1,3 @@
-'use strict'
-window.normalizeSvgPath = (() => {
 
 const TAU = Math.PI * 2
 
@@ -198,7 +196,7 @@ const arcToBezier = ({
 
 // -----------------------------------------------------------------------
 
-function normalize(path){
+export function normalizeSvgPath(path){
   // init state
   var prev
   var result = []
@@ -315,7 +313,3 @@ function quadratic(x1, y1, cx, cy, x2, y2){
   ]
 }
 
-// --------------------------------------------------------------------------
-
-return normalize
-})()

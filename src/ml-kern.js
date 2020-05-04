@@ -6,7 +6,7 @@ const OTGlyphShapeFontSize = 512
 
 // FeatureRayCount controls how many ray features to compute.
 // A larger number means higher density.
-const FeatureRayCount = 64
+const FeatureRayCount = 32
 
 let font = null
 
@@ -15,16 +15,17 @@ const canvas = Canvas.create("canvas", (c, g) => {
   g.font = '11px Inter, sans-serif'
 
   // virtual canvas size; actual size is scaled
-  const canvasSize = 1024
+  const canvasSize = new Vec2(1024,512)
 
   c.transform = () => {
+    // const scale = c.width / canvasSize
+    // const scale = c.height / canvasSize
+    const scale = Math.min(c.width/canvasSize[0], c.height/canvasSize[1])
     c.setOrigin(
-      // this makes the origin on the x-axis be left-aligned within canvasSize
-      (c.width - Math.min(c.width, c.height))/2,
-      c.height * 0.8
+      // (c.width - Math.min(c.width, c.height))/2,  // left-aligned within canvasSize
+      (c.width - canvasSize[0]*scale)/2,  // centered
+      OTGlyphShapeFontSize * scale / 1.3
     )
-    // scale
-    const scale = Math.min(c.width, c.height) / canvasSize
     g.scale(scale, scale)
   }
 
@@ -32,26 +33,71 @@ const canvas = Canvas.create("canvas", (c, g) => {
     const px = c.px.bind(c)
 
     if (font) {
-      const fontSize = canvasSize * 0.4
-      const glyphDrawScale = OTGlyphShapeFontSize / fontSize
+      const fontSize = canvasSize[0] * 0.35
+      const glyphDrawScale = fontSize / OTGlyphShapeFontSize
+      const fontScale = OTGlyphShapeFontSize / font.unitsPerEm
 
-      let shape1 = OTGlyphShape.get(font, "V")
-      let shape2 = OTGlyphShape.get(font, "o")
+      let shape1 = OTGlyphShape.get(font, "Å")
+      let shape2 = OTGlyphShape.get(font, "j")
 
+      // Deciding on an approach for vertical space; the feature sample space.
+      //
+      // box approach 1:
       // compute all glyphs in the same vertical space so that we can reuse a glyph shape
       // in multiple pair comparisons. This is prooobably a good idea. Perhaps not.
       // For short glyphs this will reduce their resolution.
-      let fontScale = OTGlyphShapeFontSize / font.unitsPerEm
-
-      let minY = -font.tables.head.yMax * fontScale
-      let maxY = -font.tables.head.yMin * fontScale
+      // Code for using the bounding box of the font:
+      //const minY = -font.tables.head.yMax * fontScale
+      //const maxY = -font.tables.head.yMin * fontScale
+      // Code for using the ascender & descender of the font:
+      const minY = -font.ascender  * fontScale
+      const maxY = -font.descender * fontScale
+      //
+      // box approach 2:
+      // Compute each pair with tightly-fitting y-axis extremes
+      //
+      // This is slower, since we need to compute the features for every pair, rather than
+      // compute just once per glyph.
+      // However, the resulting features are essentially normalized in terms of comparison
+      // across fonts. I.e. say we sample two fonts with different ascender and descender
+      // values. In this case then the feature data would be completely different for two
+      // identical shapes, as seen in Figure 1.
+      //
+      // Figure 1: "box approach 1"; the issue with varying height:
+      //
+      // Font 1                           Font 2
+      // minY —————————————————————————   minY —————————————————————————
+      // f    ----------   ----------     f    ----------   ----------
+      // f    ----------   ----------     f      \    /--   ----/\
+      // f    ----------   ----------     f       \  /---   ---/——\
+      // f      \    /--   ----/\         f        \/----   --/    \
+      // f       \  /---   ---/——\        f    ----------   ----------
+      // f        \/----   --/    \       f    ----------   ----------
+      // f    ----------   ----------     f    ----------   ----------
+      // maxY —————————————————————————   maxY —————————————————————————
+      //
+      //
+      // Figure 2: "box approach 2"; normalizing height for each pair.
+      //
+      // Font 1                           Font 2
+      // minY —————————————————————————   minY —————————————————————————
+      // f      \    /--   ----/\         f      \    /--   ----/\
+      // f       \  /---   ---/——\        f       \  /---   ---/——\
+      // f        \/----   --/    \       f        \/----   --/    \
+      // maxY —————————————————————————   maxY —————————————————————————
+      //
+      // Code for using the bounding box of the glyph pair:
+      //const minY = Math.min(shape1.bbox.minY, shape2.bbox.minY)
+      //const maxY = Math.max(shape1.bbox.maxY, shape2.bbox.maxY)
 
       if (shape1.features.left.length == 0 || shape2.features.left.length == 0) {
         // let minY = Math.min(shape1.bbox.minY, shape2.bbox.minY)
         // let maxY = Math.max(shape1.bbox.maxY, shape2.bbox.maxY)
         // perform raycasting to extract whistepace features
-        shape1.computeFeatures(minY, maxY)
-        shape2.computeFeatures(minY, maxY)
+        shape1.computeFeatures(minY, maxY, /* includeRays for drawing = */ true)
+        shape2.computeFeatures(minY, maxY, /* includeRays for drawing = */ true)
+        log(`${shape1}.features`, shape1.features)
+        log(`${shape2}.features`, shape2.features)
       }
 
       // draw: pairs
@@ -60,48 +106,68 @@ const canvas = Canvas.create("canvas", (c, g) => {
       x = drawPair(x, shape2, shape1)
 
       function drawPair(x, shape1, shape2) {
-        kerning = font.getKerningValue(shape1.glyph, shape2.glyph)
-        let kerningPct = kerning / font.unitsPerEm
-        let kerningCanvas = kerning / glyphDrawScale
+        // spacing = left-glyph-rsb + right-glyph-lsb + kerning
+        const kerning = font.getKerningValue(shape1.glyph, shape2.glyph)
+        const spacing = shape1.RSB + shape2.LSB + kerning
+        const spacingPct = spacing / font.unitsPerEm
+
+        // TODO: figure out what spacing% shuld be relative to in terms of the
+        // result value [ML: labeled feature] Union bbox? UPM?
+        // Needs to be a value that makes sense for all pairs of shapes.
 
         shape1.draw(g, x, 0, fontSize, "right")
-        x += shape1.width/glyphDrawScale
+        x += shape1.bbox.width * glyphDrawScale
 
-        // let spacing = kerning * fontScale
-        let spacing = 0
-        let labelpos = new Vec2(x + spacing/2, 40)
-        x += spacing
+        // spacing: visualize kerning
+        // let spacingBetweenPairs = (spacing*fontScale) * glyphDrawScale
+        // spacing: LSB & RSB
+        let spacingBetweenPairs = (shape1.paddingRight + shape2.paddingLeft)*glyphDrawScale + 30
+        let labelpos = new Vec2(x + spacingBetweenPairs/2, maxY*glyphDrawScale + 20)
+        x += spacingBetweenPairs
         shape2.draw(g, x, 0, fontSize, "left")
 
+        // text with kerning value
+        const spacingText = (
+          Math.round(spacing*100) == 0 ? "0" :
+          `${(spacingPct*100).toFixed(1)}% (${spacing})`
+        )
         g.fillStyle = "black"
         g.textAlign = "center"
+        g.strokeStyle = "white"
+        g.lineWidth = g.dp * 4
         g.font = `${Math.round(12 * g.dp)}px Inter, sans-serif`
-        // g.fillText((kerningPct*100).toFixed(1)+"%", labelpos[0], labelpos[1])
-        g.fillText(kerningCanvas, labelpos[0], labelpos[1])
-        g.drawCircle(labelpos.addY(10), g.dp*2, "black")
+        g.strokeText(spacingText, labelpos[0], labelpos[1])
+        g.fillText(spacingText, labelpos[0], labelpos[1])
+        // g.drawCircle(labelpos.addY(10), g.dp*2, "black")
 
-        return x + shape2.width/glyphDrawScale + 40
+        return x + shape2.width*glyphDrawScale + 40
       }
 
 
       // // draw: parade
       // let x = 0, spacing = 20
       // shape1.draw(g, x, 0, fontSize, "left")
-      // x += shape1.width/glyphDrawScale + spacing
+      // x += shape1.width*glyphDrawScale + spacing
 
       // shape1.draw(g, x, 0, fontSize, "right")
-      // x += shape1.width/glyphDrawScale + spacing
+      // x += shape1.width*glyphDrawScale + spacing
 
       // shape2.draw(g, x, 0, fontSize, "left")
-      // x += shape2.width/glyphDrawScale + spacing
+      // x += shape2.width*glyphDrawScale + spacing
 
       // shape2.draw(g, x, 0, fontSize, "right")
-      // x += shape2.width/glyphDrawScale + spacing
+      // x += shape2.width*glyphDrawScale + spacing
     }
 
     g.drawOrigin(red.alpha(0.7))
     // c.needsDraw = true
   } // draw
+})
+
+
+// once fonts load, redraw
+window.addEventListener("load", () => {
+  canvas.needsDraw = true
 })
 
 
@@ -113,7 +179,7 @@ class PolyShape {
     }
 
     // convert curves into discrete points
-    this.polygons = svgPathContours(paths, /*density*/0.5)
+    this.polygons = svgPathContours(paths, /*density*/0.3)
 
     // simplify polygons and convert to vertex arrays (plus compute bbox)
     const bbox = this.bbox = {
@@ -153,13 +219,19 @@ class PolyShape {
     this.paddingRight = 0  // i.e. sidebearing for fonts
 
     // features (populated by computeFeatures)
-    this.features = { left: [], right: [] }
+    this.features = {
+      left:      [], // : float[] -- velocity factors
+      right:     [], // : float[] -- velocity factors
+      leftRays:  [], // : [Vec2,Vec2][] -- ray lines
+      rightRays: [], // : [Vec2,Vec2][] -- ray lines
+    }
   }
 
   // computeFeatures takes the shape's polygons and computes the left and right
   // whitespace, described by lists of distances in the input shape's coordinate system.
-  computeFeatures(minY, maxY) {
+  computeFeatures(minY, maxY, includeRays) {
     // raycast
+    // console.time("computeFeatures")
     const yStride = Math.ceil((maxY-minY)/FeatureRayCount)
     const padding = 0  // some extra space around the bbox (for debugging)
     const minX = this.bbox.minX - padding
@@ -168,17 +240,23 @@ class PolyShape {
     const hitTesters = this.polygons.map(polygon => new PolyPointHitTester(polygon))
     this.features.left.length = 0
     this.features.right.length = 0
+    this.features.leftRays.length = 0
+    this.features.rightRays.length = 0
     for (let y = minY, rayNum = 0; y <= maxY && rayNum < FeatureRayCount; y += yStride) {
       let xl = minX
       let xr = maxX
       let endl = raycastX(hitTesters, xl, y, 1, maxDistance)
       let endr = raycastX(hitTesters, xr, y, -1, maxDistance)
-      // TODO: Consider encoding features as velocity instead of lines.
-      // i.e. let the position in the features list replace the "y" value and then
-      // simply store the number end-x
-      this.features.left.push([ new Vec2(xl,y), new Vec2(endl,y) ])
-      this.features.right.push([ new Vec2(xr,y), new Vec2(endr,y) ])
+      // Encode features as normalized x-axis "velocity":
+      this.features.left.push((endl-xl)/maxDistance)
+      this.features.right.push((xr-endr)/maxDistance)
+      if (includeRays) {
+        // include rays, useful for drawing
+        this.features.leftRays.push([ new Vec2(xl,y), new Vec2(endl,y) ])
+        this.features.rightRays.push([ new Vec2(xr,y), new Vec2(endr,y) ])
+      }
     }
+    // console.timeEnd("computeFeatures")
     return this.features
   }
 
@@ -186,10 +264,14 @@ class PolyShape {
     return this.paddingLeft + this.bbox.width + this.paddingRight
   }
 
-  draw(g, x, y, scale, featureSides) {
+  draw(g, x, y, scale, featureSides /* "left"|"right"|(("left"|"right")[]) */, options) {
+    options = Object.assign({
+      // default options
+      valueLabels: true,  // draw value labels
+    }, options || {})
     // translate in caller coordinates and scale.
     // adjustX adjusts the bbox _after_ scaling (with scaling applied), in shape coordinates.
-    let adjustX = -this.bbox.minX + this.paddingLeft
+    let adjustX = -this.bbox.minX //+ this.paddingLeft
     g.withTransform([scale, 0, x + (adjustX * scale), 0, scale, y], () => {
 
       if (!Array.isArray(featureSides)) {
@@ -210,7 +292,7 @@ class PolyShape {
         this.bbox.height,
       )
 
-      let polygonColors = [ red, blue, green, orange ]
+      let polygonColors = [ red, blue, pink, orange ]
 
       // draw polygon lines
       for (let i = 0; i < this.polygons.length; i++) {
@@ -241,14 +323,40 @@ class PolyShape {
         }
       }
 
-      // draw the feature rays
+      // draw feature rays
+      if (g.pixelScale / g.dp < 1.3) {
+        // don't show values if text will be too cramped
+        options.valueLabels = false
+      }
       for (let side of featureSides) {
-        let features = this.features[side]
-        if (features) for (let [pt1, pt2] of features) {
-          g.drawLine(pt1, pt2, green, g.dp)
+        const rays = this.features[side + "Rays"]
+        const values = this.features[side]
+        const fontSize = 9 * g.dp
+        const labelSpacing = side == "left" ? fontSize/-2 : fontSize/2
+        g.fillStyle = green
+        g.textAlign = side == "left" ? "right" : "left"
+        g.font = `500 ${Math.round(fontSize)}px Inter, sans-serif`
+        if (rays) for (let i = 0; i < rays.length; i++) {
+          // draw ray
+          let [pt1, pt2] = rays[i]
+          g.drawArrow(pt2, pt1, green, g.dp)
+          // draw value label
+          if (options.valueLabels) {
+            let value = values[i]
+            let xspace = value < 0.015 ? labelSpacing*2 : labelSpacing
+            let text = value == 1 ? "•" : Math.round(value*100)
+            g.fillText(text, pt1[0] + xspace, pt1[1] + fontSize/3)
+          }
         }
       }
     }) // transform
+  }
+
+  toString() {
+    return (
+      this.constructor.name +
+      `(${Math.round(this.width)}×${this.bbox.height} ${this.polygons.length} polys)`
+    )
   }
 }
 
@@ -265,10 +373,15 @@ class OTGlyphShape extends PolyShape {
     this.glyph = glyph
     this.glyphPath = glyphPath
 
-    // sidebearings
+    // sidebearings, which are in UPM (unscaled)
+    const upmbbox = glyph.getBoundingBox()
+    this.LSB = upmbbox.x1
+    this.RSB = glyph.advanceWidth - upmbbox.x1 - (upmbbox.x2 - upmbbox.x1)
+
+    // PolyShape padding, which are in polygon coordinates (scaled)
     const scale = OTGlyphShapeFontSize / font.unitsPerEm
-    this.paddingLeft  = glyph.leftSideBearing*scale
-    this.paddingRight = glyph.advanceWidth*scale - this.paddingLeft - this.bbox.width
+    this.paddingLeft  = this.LSB*scale
+    this.paddingRight = this.RSB*scale
   }
 
   draw(g, x, y, fontSize, featureSides) {
@@ -358,29 +471,31 @@ class PolyPointHitTester {
   }
 
 
-  test2(x, y) {
-    // bool oddNodes=NO, current=polY[polyCorners-1]>y, previous;
-    // for (int i=0; i<polyCorners; i++) {
-    //   previous=current; current=polyY[i]>y; if (current!=previous) oddNodes^=y*multiple[i]+constant[i]<x; }
-    // return oddNodes;
-  }
-
   test(x, y) {
-    let j = this.length - 1
-    let oddNodes = 0
+    let oddNodes = 0, current = this.polygon[this.polygon.length-1] > y
     for (let i = 0; i < this.length; i++) {
-      let cy = this.polygon[i*2 + 1]
-      let ny = this.polygon[j*2 + 1]
-      if (cy < y && ny >= y || ny < y && cy >= y) {
-        oddNodes ^= (y * this.multiple[i] + this.constant[i]) < x
-        // log(`subhit (${x},${y})`,
-        //   this.polygon[i*2], this.polygon[i*2 + 1], "/",
-        //   this.polygon[j*2], this.polygon[j*2 + 1])
+      let previous = current
+      current = this.polygon[i*2 + 1] > y
+      if (current != previous) {
+        oddNodes ^= y * this.multiple[i] + this.constant[i] < x
       }
-      j = i
     }
     return !!oddNodes
   }
+
+  // test(x, y) {
+  //   let j = this.length - 1
+  //   let oddNodes = 0
+  //   for (let i = 0; i < this.length; i++) {
+  //     let cy = this.polygon[i*2 + 1]
+  //     let ny = this.polygon[j*2 + 1]
+  //     if (cy < y && ny >= y || ny < y && cy >= y) {
+  //       oddNodes ^= (y * this.multiple[i] + this.constant[i]) < x
+  //     }
+  //     j = i
+  //   }
+  //   return !!oddNodes
+  // }
 }
 
 
@@ -399,7 +514,8 @@ function otPathToPaths(otpath) {
 }
 
 
-opentype.load('fonts/Inter-Regular.otf', (err, _font) => {
+// opentype.load('fonts/Inter-Regular.otf', (err, _font) => {
+opentype.load('fonts/Georgia.ttf', (err, _font) => {
   log("load-font", {err, _font})
   font = _font
   canvas.needsDraw = true

@@ -4,7 +4,7 @@
   font-style: normal;
   font-named-instance: 'Regular';
   font-display: swap;
-  src: url("https://rsms.me/inter/font-files/Inter-roman.var.woff2?3.13") format("woff2");
+  src: url("https://rsms.me/inter/font-files/Inter-roman.var.woff2") format("woff2");
 }
 @font-face {
   font-family: 'Inter';
@@ -12,7 +12,7 @@
   font-style: italic;
   font-named-instance: 'Italic';
   font-display: swap;
-  src: url("https://rsms.me/inter/font-files/Inter-italic.var.woff2?3.13") format("woff2");
+  src: url("https://rsms.me/inter/font-files/Inter-italic.var.woff2") format("woff2");
 }
 
 :root {

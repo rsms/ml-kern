@@ -1,66 +1,14 @@
-const Vec2 = (()=>{
-class Vec2 extends Array {
-  add(f)    { checkNumArg(f) ; return new Vec2(this[0] + f, this[1] + f) }
-  sub(f)    { checkNumArg(f) ; return new Vec2(this[0] - f, this[1] - f) }
-  mul(f)    { checkNumArg(f) ; return new Vec2(this[0] * f, this[1] * f) }
-  div(f)    { checkNumArg(f) ; return new Vec2(this[0] / f, this[1] / f) }
+import { Vec2 } from "./vec"
 
-  addX(f)    { checkNumArg(f) ; return new Vec2(this[0] + f, this[1]) }
-  addY(f)    { checkNumArg(f) ; return new Vec2(this[0], this[1] + f) }
-  subX(f)    { checkNumArg(f) ; return new Vec2(this[0] - f, this[1]) }
-  subY(f)    { checkNumArg(f) ; return new Vec2(this[0], this[1] - f) }
-  mulX(f)    { checkNumArg(f) ; return new Vec2(this[0] * f, this[1]) }
-  mulY(f)    { checkNumArg(f) ; return new Vec2(this[0], this[1] * f) }
-  divX(f)    { checkNumArg(f) ; return new Vec2(this[0] / f, this[1]) }
-  divY(f)    { checkNumArg(f) ; return new Vec2(this[0], this[1] / f) }
-
-  add2(vec) { checkVec2Arg(vec) ; return new Vec2(this[0] + vec[0], this[1] + vec[1]) }
-  sub2(vec) { checkVec2Arg(vec) ; return new Vec2(this[0] - vec[0], this[1] - vec[1]) }
-  mul2(vec) { checkVec2Arg(vec) ; return new Vec2(this[0] * vec[0], this[1] * vec[1]) }
-  div2(vec) { checkVec2Arg(vec) ; return new Vec2(this[0] / vec[0], this[1] / vec[1]) }
-
-  distanceTo(v) { // euclidean distance between this and v
-    return Math.sqrt(this.squaredDistanceTo(v))
-  }
-  squaredDistanceTo(v){
-    let x = this[0] - v[0] , y = this[1] - v[1]
-    return x * x + y * y
-  }
-  angleTo(v) { // angle from this to v in radians
-    return Math.atan2(this[1] - v[1], this[0] - v[0]) + Math.PI
-  }
-  magnitude() { // v^2 = x^2 + y^2
-    return Math.sqrt(this[0] * this[0] + this[1] * this[1])
-  }
-  lerp(v, t) { // LERP - Linear intERPolation between this and v. t must be in range [0-1]
-    let a = this, ax = a[0], ay = a[1]
-    return new Vec2(ax + t * (v[0] - ax), ay + t * (v[1] - ay))
-  }
-  set(f) { checkNumArg(f) ; this[0] = f ; this[1] = f ; return this }
-  set2(vec) { checkVec2Arg(vec) ; this[0] = vec[0] ; this[1] = vec[1] ; return this }
-  abs() { return new Vec2(Math.abs(this[0]), Math.abs(this[1])) }
-  clone() { return new Vec2(this) }
-  toString() { return `(${this[0]} ${this[1]})` }
-}
-
-function checkNumArg(v) {
-  if (typeof v != "number") {
-    throw new Error("argument is not a number")
-  }
-}
-
-function checkVec2Arg(v) {
-  if (!(v instanceof Vec2)) {
-    throw new Error("argument is not a Vec2")
-  }
-}
-
-return Vec2
-})()
+// main function is Canvas.create:
+// Canvas.create(
+//   domSelector : string,
+//   init        : (c :Canvas, g :Context2D)=>void,
+//   draw        : (time :number)=>void,
+// )
 
 
-// colors
-class Color {
+export class Color {
   constructor(r,g,b,a) {
     this.r = r ; this.g = g ; this.b = b ; this.a = a
   }
@@ -72,15 +20,15 @@ class Color {
   }
 }
 
-const red    = new Color(1, 0.1, 0, 1)
-const orange = new Color(1, 0.5, 0, 1)
-const green  = new Color(0, 0.7, 0.1, 1)
-const teal   = new Color(0, 0.7, 0.7, 1)
-const blue   = new Color(0, 0.55, 1, 1)
-const pink   = new Color(1, 0.1, 1, 1)
+export const red =    new Color(1, 0.1, 0, 1)
+export const orange = new Color(1, 0.5, 0, 1)
+export const green =  new Color(0, 0.7, 0.1, 1)
+export const teal =   new Color(0, 0.7, 0.7, 1)
+export const blue =   new Color(0, 0.55, 1, 1)
+export const pink =   new Color(1, 0.2, 0.7, 1)
 
 
-class Canvas {
+export class Canvas {
   constructor(domSelector) {
     const c = this
     c.canvas = document.querySelector(domSelector)
@@ -155,6 +103,28 @@ class Canvas {
         g.lineTo(b[0], b[1])
         g.lineTo(c[0], c[1])
       },
+      arrowhead(headPos, tailPos, size, stemStrokeWidthHint) {
+        // draws a triangle which tip is at headPos and its opposite edge is in the direction
+        // of tailPos. stemStrokeWidthHint is a hint to offset the tip of the triangle from
+        // the headPos. In case of drawing a an arrow, this should be the stem thickness.
+        let angle = Math.atan2(headPos[1] - tailPos[1], headPos[0] - tailPos[0])
+        const marginFromTip = stemStrokeWidthHint || 0
+            , cx = headPos[0] - Math.cos(angle)*(size - marginFromTip)
+            , cy = headPos[1] - Math.sin(angle)*(size - marginFromTip)
+        g.beginPath()
+        let x = size*Math.cos(angle) + cx
+        let y = size*Math.sin(angle) + cy
+        g.moveTo(x, y)
+        angle += (1/3)*(2*Math.PI)
+        x = size*Math.cos(angle) + cx
+        y = size*Math.sin(angle) + cy
+        g.lineTo(x, y)
+        angle += (1/3)*(2*Math.PI)
+        x = size*Math.cos(angle) + cx
+        y = size*Math.sin(angle) + cy
+        g.lineTo(x, y)
+        g.closePath()
+      },
     }
 
     // transform functions
@@ -167,7 +137,10 @@ class Canvas {
       strokeOrFill(style, strokeWidth, () => g.draw.circle(pos, radius))
     }
     g.drawRhombus = (pos, radius, style, strokeWidth) => {
-      strokeOrFill(style, strokeWidth, () => g.draw.rhombus(pos, radius))
+      strokeOrFill(style, strokeWidth, () => {
+        g.draw.rhombus(pos, radius)
+        g.closePath()
+      })
     }
     g.drawLine = (start, end, style, strokeWidth) => {
       g.lineWidth = strokeWidth || 1
@@ -203,7 +176,44 @@ class Canvas {
     g.drawTriangle = (a, b, c, style, strokeWidth) => {
       strokeOrFill(style, strokeWidth, () => {
         g.draw.triangle(a, b, c)
+        g.closePath()
       })
+    }
+    g.drawArrow = (headPos, tailPos, style, strokeWidth, arrowHeadSize) => {
+      if (strokeWidth === undefined) {
+        strokeWidth = g.dp
+      }
+      if (arrowHeadSize === undefined) {
+        arrowHeadSize = strokeWidth * Math.PI
+      }
+      let angle = Math.atan2(headPos[1] - tailPos[1], headPos[0] - tailPos[0])
+      let cx = Math.cos(angle), cy = Math.sin(angle)
+      // stem (offset stem head to not interfere with arrowhead point)
+      let stemHeadPos = [
+        headPos[0] - cx*(arrowHeadSize - strokeWidth),
+        headPos[1] - cy*(arrowHeadSize - strokeWidth),
+      ]
+      g.drawLine(stemHeadPos, tailPos, style, strokeWidth)
+      // arrowhead
+      const headWidthRatio = 0.6  // 1=1:1, <1 = long arrowhead, >1 = stubby arrowhead
+      arrowHeadSize = arrowHeadSize/headWidthRatio
+      cx = headPos[0] - cx*arrowHeadSize
+      cy = headPos[1] - cy*arrowHeadSize
+      g.beginPath()  // tip:
+      let x = arrowHeadSize*Math.cos(angle) + cx
+      let y = arrowHeadSize*Math.sin(angle) + cy
+      g.moveTo(x, y)
+      angle += (1/3)*(2*Math.PI)
+      x = (arrowHeadSize*headWidthRatio)*Math.cos(angle) + cx
+      y = (arrowHeadSize*headWidthRatio)*Math.sin(angle) + cy
+      g.lineTo(x, y)
+      angle += (1/3)*(2*Math.PI)
+      x = (arrowHeadSize*headWidthRatio)*Math.cos(angle) + cx
+      y = (arrowHeadSize*headWidthRatio)*Math.sin(angle) + cy
+      g.lineTo(x, y)
+      g.closePath()
+      g.fillStyle = style || "black"
+      g.fill()
     }
   }
 
@@ -240,7 +250,7 @@ class Canvas {
     // update size
     this.width  = Math.round(r.width)
     this.height = Math.round(r.height)
-    this.pixelScale = window.devicePixelRatio
+    this.g.pixelScale = this.pixelScale = window.devicePixelRatio
     canvas.width  = Math.round(this.width * this.pixelScale)
     canvas.height = Math.round(this.height * this.pixelScale)
     style.minWidth  = canvas.width + "px"
@@ -265,6 +275,10 @@ class Canvas {
   // transform is called when the viewport has changed.
   // Perform any coordinate space transforms here.
   transform() {}
+
+  // draw is called whenever needsDraw is true, by the Canvas.create mechanism.
+  // This function should be implemented by users.
+  draw(time) {}
 
   drawIfNeeded(time) {
     const c = this
@@ -301,7 +315,6 @@ class Canvas {
 
 }
 
-;(()=>{
 
 let canvases = new Set()
 
@@ -329,5 +342,3 @@ function drawAll(time) {
   }
 }
 
-
-})();

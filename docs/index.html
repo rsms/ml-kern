@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ml-kern</title>
+  <link rel="stylesheet" type="text/css" href="css.css?v=a8e03c33c921348cdd609fd60f85da27ec3a0f95">
+  <link rel="preload" href="https://rsms.me/inter/font-files/Inter-roman.var.woff2"
+        as="font" type="font/woff2" crossorigin="anonymous">
+  <link rel="preload" href="app/main.js?v=a8e03c33c921348cdd609fd60f85da27ec3a0f95"
+        as="script" type="text/javascript">
+
+  <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.3/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.4.0/dist/tfjs-vis.umd.min.js"></script> -->
+  <!-- <script src="tf.min.js"></script>
+  <script src="tfjs-vis.umd.min.js"></script> -->
+
+<script type="text/javascript">(()=>{
+// // patch browser to look like node so that opentype.js doesn't fail to load
+// var global = (
+//   typeof global != "undefined" ? global :
+//   typeof self != "undefined" ? self :
+//   typeof window != "undefined" ? window :
+//   this
+// )
+// if (!global.module) {
+//   global.module = {}
+// }
+
+var version = "?v=a8e03c33c921348cdd609fd60f85da27ec3a0f95".substr(3)
+var srcpath = "build"
+if (document.location.hostname == "localhost") {
+  srcpath = "build-dev"
+  version = Date.now()
+}
+var script = document.createElement("script")
+script.defer = true
+script.src = srcpath + "/main.js?" + "v=" + version
+document.head.appendChild(script)
+})()</script>
+  <style>
+
+body {
+  font: 11px Inter, sans-serif;
+  padding:0;
+  margin:0;
+}
+
+canvas {
+  display: block;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  /*border:4px solid red;*/
+}
+
+#font-preload {
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+}
+
+  </style>
+</head>
+<body>
+  <div id="font-preload">a</div><!-- hack to ensure fonts are available when drawing -->
+  <canvas id="canvas1"></canvas>
+</body>
+</html>

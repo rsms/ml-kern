@@ -22,7 +22,6 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABI
 TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-window.simplifyPath = (() => {
 
 function getSqDist(p1, p2) {
   var dx = p1[0] - p2[0],
@@ -32,7 +31,7 @@ function getSqDist(p1, p2) {
 }
 
 // basic distance-based simplification
-function simplifyRadialDist(points, tolerance) {
+export function simplifyRadialDist(points, tolerance) {
   if (points.length<=1)
     return points;
   tolerance = typeof tolerance === 'number' ? tolerance : 1;
@@ -106,7 +105,7 @@ function simplifyDPStep(points, first, last, sqTolerance, simplified) {
 }
 
 // simplification using Ramer-Douglas-Peucker algorithm
-function simplifyDouglasPeucker(points, tolerance) {
+export function simplifyDouglasPeucker(points, tolerance) {
   if (points.length<=1)
     return points;
   tolerance = typeof tolerance === 'number' ? tolerance : 1;
@@ -124,10 +123,8 @@ function simplifyDouglasPeucker(points, tolerance) {
 // -------------------------------------------------------------------
 
 //simplifies using both algorithms
-return function simplify(points, tolerance) {
+export function simplifyPath(points, tolerance) {
   points = simplifyRadialDist(points, tolerance);
   points = simplifyDouglasPeucker(points, tolerance);
   return points;
 }
-
-})()

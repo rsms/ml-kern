@@ -20,9 +20,9 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
 OR OTHER DEALINGS IN THE SOFTWARE.
 */
-window.svgPathContours = (() => {
-
-// import adaptiveBezierCurve, normalizeSvgPath, absSvgPath
+import { normalizeSvgPath } from "./normalize-svg-path"
+import { absSvgPath } from "./abs-svg-path"
+import { adaptiveBezierCurve } from "./adaptive-bezier-curve"
 
 function vec2Copy(out, a) {
   out[0] = a[0]
@@ -87,7 +87,7 @@ return function contours(svg, scale) {
   return paths
 }*/
 
-return function contours(svg, scale) {
+export function svgPathContours(svg, scale) {
   var paths = []
   var points = []
   var pen = [0, 0]
@@ -112,5 +112,3 @@ return function contours(svg, scale) {
   }
   return paths
 }
-
-})()

@@ -4,7 +4,7 @@
  * @param {Array} path
  * @return {Array}
  */
-window.absSvgPath = function absSvgPath(path){
+export function absSvgPath(path){
   var startX = 0
   var startY = 0
   var x = 0
