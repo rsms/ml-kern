@@ -43,7 +43,7 @@ async function main() {
     for (let pair of glyphPairIterator) {
       // log("computing features of pair", pair)
       let data = fe.computeFeaturesForGlyphPair(pair[0], pair[1])
-      log("features:", data.spacing, data.features)
+      // log("features:", data.spacing, data.features)
       if (WEB_BROWSER) {
         visualize.setShapes(fe, data.L, data.R)
         // wait for a key stroke

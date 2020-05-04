@@ -27,18 +27,23 @@ const sourceMappingURLBuf1 = Buffer.from("//# sourceMappingURL=", "utf8")
 const sourceMappingURLBuf2 = Buffer.from("//#sourceMappingURL=", "utf8")
 
 
-async function loadSourceMap(filename, source) {
-  let m = /\n\/\/#\s*sourceMappingURL\s*=([^\r\n]+)/g.exec(source)
+async function loadSourceMap(filename, source, isSecondLevel) {
+  let m = /(?:\n|;|^)\/\/#\s*sourceMappingURL\s*=([^\r\n]+)/g.exec(source)
   if (m) {
     let sourceMapFile = Path.resolve(Path.dirname(filename), m[1])
     let rawSourceMap = JSON.parse(fs.readFileSync(sourceMapFile, "utf8"))
     rawSourceMap.file = filename
     return await new SourceMapConsumer(rawSourceMap)
-  } else {
-    // This is fine
-    // log(`no sourcemap found in ${filename}`)
-  }
+  } else if (!isSecondLevel) {
+    log(`no sourcemap found in ${filename}`)
+  } // else: This is okay and will likely fail for source-level files
   return null
+}
+
+
+async function loadSourceMapInFile(filename) {
+  let contents = await fs.promises.readFile(filename, "utf8")
+  return await loadSourceMap(filename, contents, /*isSecondLevel*/true)
 }
 
 
@@ -53,12 +58,6 @@ async function loadSourceFile(filename) {
     contents,
     map,
   }
-}
-
-
-async function loadSourceMapInFile(filename) {
-  let contents = await fs.promises.readFile(filename, "utf8")
-  return await loadSourceMap(filename, contents)
 }
 
 
